@@ -1,4 +1,4 @@
-import time,math,cmath,argparse,random
+import time,math,cmath,argparse,random,os
 import numpy as np
 import scipy as sp
 from scipy.linalg import expm,sqrtm
@@ -381,7 +381,9 @@ def Get_obs(rho):
     obs = rho
     return obs
 
-
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -416,6 +418,7 @@ ens_table = ['Hamiltonian','Global','Local']
 ens_num = len(ens_table)
 # address for saved data
 addr = "./store/record_"+ name +".npy"
+create("./store/")
 
 ################################# Preparation #################################
 
@@ -453,14 +456,16 @@ print('-- start preprocessing l,V,X_mat,X_inv')
 
 # _,V_lst,X_mat_lst,X_inv_lst = Get_lvx(h_group_num,theta_table,n_table)
 # # 改为直接从prep里读取
-V_lst = [0]*n_num
-X_mat_lst = [0]*n_num
-X_inv_lst = [0]*n_num
-for n_idx in range(n_num):
-    n = n_table[n_idx]
-    V_lst[n_idx] = np.load('./prep/V_l/n'+str(n)+'.npy')
-    X_mat_lst[n_idx] = np.load('./prep/X_mat_l/n'+str(n)+'.npy')
-    X_inv_lst[n_idx] = np.load('./prep/X_inv_l/n'+str(n)+'.npy')
+# V_lst = [0]*n_num
+# X_mat_lst = [0]*n_num
+# X_inv_lst = [0]*n_num
+# for n_idx in range(n_num):
+#     n = n_table[n_idx]
+#     V_lst[n_idx] = np.load('./prep/V_l/n'+str(n)+'.npy')
+#     X_mat_lst[n_idx] = np.load('./prep/X_mat_l/n'+str(n)+'.npy')
+#     X_inv_lst[n_idx] = np.load('./prep/X_inv_l/n'+str(n)+'.npy')
+
+_,V_lst,X_mat_lst,X_inv_lst = Get_lvx(h_group_num,theta_table,n_table)
 
 # prep进行适当调整
 # V_lst = V_lst[6:7,:,:]
