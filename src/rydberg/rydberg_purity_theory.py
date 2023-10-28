@@ -1,4 +1,4 @@
-import time,cmath,math,argparse,random
+import time,cmath,math,argparse,random, os
 
 import numpy as np
 import scipy as sp
@@ -153,6 +153,9 @@ def Get_rho(n,t,H,rho_type):
 
     return rho
 
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -228,6 +231,9 @@ elif rho_type==2:
     state = '_state0101'
 
 addr = './store/theory_n' + str(2*n) + '_evoldist' + str(x_dist) + state + '_density'+ str(theory_points)
+
+create("./store/")
+
 np.save(addr+'.npy',ent_data)
 print('------------------ Data recorded')
 

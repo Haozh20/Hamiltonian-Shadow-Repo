@@ -1,4 +1,4 @@
-import time,cmath,math,argparse,random
+import time,cmath,math,argparse,random, os
 
 import numpy as np
 import scipy as sp
@@ -327,6 +327,45 @@ def Get_rho(n,t,rho_type):
 
     return rho
 
+def Get_lvx(n, h_group_num, C0_ratio, x_dist, rand_amp):
+    l_lst = []
+    V_lst = []
+    X_mat_lst = []
+    X_inv_lst = []
+    H_lst = []
+
+    t0 = time.time()
+    h_tqdm = tqdm(range(h_group_num),leave=False)
+    for i in h_tqdm:
+        C0 = 2*np.pi*(10)**6
+        C = C0_ratio*C0
+
+        xy_lst = [0]*n
+        for i in range(n):
+            xy_lst[i] = [x_dist*i+rand_amp*np.random.rand(), 0]
+        # x_lst = [x_dist*i+rand_amp*np.random.rand() for i in range(n)]
+        # omega_lst = [1.1*2*np.pi + 0.5*np.random.rand()]*n
+        omega_lst = [1.1*2*np.pi]*n
+        delta_lst = [1.2*2*np.pi]*n
+        phi_lst = [2.1]*n
+
+        H = Rydberg_Hamiltonian(omega_lst, phi_lst, delta_lst, V_matrix(C, xy_lst))
+        l,V,X_mat,X_inv = VX_calculate(H)
+
+        l_lst.append(l)
+        V_lst.append(V)
+        X_mat_lst.append(X_mat)
+        X_inv_lst.append(X_inv)
+        H_lst.append(H)
+    
+    t1 = time.time()
+    print('n=',n,': finished (runtime:',t1-t0,')')
+    
+    return l_lst,V_lst,X_mat_lst,X_inv_lst,H_lst
+
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -369,6 +408,7 @@ t_num = len(t_table)
 # address for saved data
 addr_data = "./store/data_"+args.name+".npy"
 # addr_ideal = "./store/ideal_"+args.name+".npy"
+create("./store/")
 
 # snapshot[t_idx][H_idx][DM_idx]
 # 注意在这个程序里，snapshot始终是列表！
@@ -403,11 +443,13 @@ if rand_amp == int(rand_amp):
 if C0_ratio == int(C0_ratio):
     C0_ratio = int(C0_ratio)
 
-prefix = '../prep/shadow_LVX/xdist'+str(x_dist)+'_rand'+str(rand_amp)+'_C'+str(C0_ratio)
-l_lst = np.load(prefix +'/l_l/n'+str(n)+'.npy')
-V_lst = np.load(prefix + '/V_l/n'+str(n)+'.npy')
-X_mat_lst = np.load(prefix + '/X_mat_l/n'+str(n)+'.npy')
-X_inv_lst = np.load(prefix + '/X_inv_l/n'+str(n)+'.npy')
+# prefix = '../prep/shadow_LVX/xdist'+str(x_dist)+'_rand'+str(rand_amp)+'_C'+str(C0_ratio)
+# l_lst = np.load(prefix +'/l_l/n'+str(n)+'.npy')
+# V_lst = np.load(prefix + '/V_l/n'+str(n)+'.npy')
+# X_mat_lst = np.load(prefix + '/X_mat_l/n'+str(n)+'.npy')
+# X_inv_lst = np.load(prefix + '/X_inv_l/n'+str(n)+'.npy')
+
+l_lst,V_lst,X_mat_lst,X_inv_lst,H_lst = Get_lvx(n, h_group_num, C0_ratio, x_dist, rand_amp)
 
 # prepare state rho
 print('-- start preparing all states')

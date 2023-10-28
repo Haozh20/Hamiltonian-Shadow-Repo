@@ -1,4 +1,4 @@
-import time, math, cmath, argparse
+import time, math, cmath, argparse, os
 import numpy as np
 import scipy as sp
 from scipy.linalg import expm
@@ -104,6 +104,9 @@ def Get_rho(n):
 
     return rho
 
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -129,6 +132,7 @@ rand_amp = args.randamp
 n_table = args.ntable
 n_num = len(n_table)
 
+create("./store/")
 addr_data = "./store/data_"+args.name+".npy"
 
 

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import random,time,argparse
 from tqdm import tqdm
@@ -45,7 +46,9 @@ def resample(pool, M, times, h_group_num):
 
     return est_mean, est_var
 
-
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -63,8 +66,11 @@ name = args.name
 
 ################################# Preparation #################################
 
-addr_record = '../store/var_n/record_'+name+'.npy'
-addr_data = '../store/var_n/data_'+name+'.npy'
+addr_record = '../store/record_'+name+'.npy'
+addr_data = '../store/data_'+name+'.npy'
+
+create("./store/")
+
 # record[ens_idx][n_idx][theta_idx][P_idx][DM_idx]
 record = np.load(addr_record)
 

@@ -1,6 +1,4 @@
-import time
-import math
-import cmath
+import time, math, cmath, os
 import numpy as np
 import scipy as sp
 from scipy.linalg import expm,sqrtm
@@ -358,6 +356,9 @@ def Get_obs(obs_type,rho):
 
     return obs
 
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -393,6 +394,7 @@ ens_num = len(ens_table)
 addr_record = "./store/record_"+args.name+".npy"
 addr_ideal = "./store/ideal_"+args.name+".npy"
 
+create("./store/")
 
 # CHANGE: arrangement of record
 # record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][M]

@@ -1,4 +1,4 @@
-import time, math, cmath, argparse, random
+import time, math, cmath, argparse, random, os
 import numpy as np
 import scipy as sp
 from scipy.linalg import expm,sqrtm
@@ -73,7 +73,6 @@ def I_str(n):
         res = res ^ I
     return res
 
-
 def V_matrix(C, x_lst):
     n = len(x_lst)
     res = [[0 for i in range(n)] for i in range(n)]
@@ -82,7 +81,6 @@ def V_matrix(C, x_lst):
             res[i][j] = C/(x_lst[i]-x_lst[j])**6
             res[j][i] = C/(x_lst[i]-x_lst[j])**6
     return res
-
 
 def Rydberg_Hamiltonian(Omega_lst, phi_lst, Delta_lst, v_matrix):
     V = v_matrix
@@ -296,6 +294,41 @@ def Get_obs(rho):
 
     return obs
 
+def Get_lvx(n, h_group_num, C0_ratio, x_dist, rand_amp):
+    l_lst = []
+    V_lst = []
+    X_mat_lst = []
+    X_inv_lst = []
+    H_lst = []
+
+    t0 = time.time()
+    h_tqdm = tqdm(range(h_group_num),leave=False)
+    for i in h_tqdm:
+        C0 = 2*np.pi*(10)**6
+        C = C0_ratio*C0
+        x_lst = [x_dist*i+rand_amp*np.random.rand() for i in range(n)]
+        # omega_lst = [1.1*2*np.pi + 0.5*np.random.rand()]*n
+        omega_lst = [1.1*2*np.pi]*n
+        delta_lst = [1.2*2*np.pi]*n
+        phi_lst = [2.1]*n
+
+        H = Rydberg_Hamiltonian(omega_lst, phi_lst, delta_lst, V_matrix(C, x_lst))
+        l,V,X_mat,X_inv = VX_calculate(H)
+
+        l_lst.append(l)
+        V_lst.append(V)
+        X_mat_lst.append(X_mat)
+        X_inv_lst.append(X_inv)
+        H_lst.append(H)
+    
+    t1 = time.time()
+    print('n=',n,': finished (runtime:',t1-t0,')')
+    
+    return l_lst,V_lst,X_mat_lst,X_inv_lst,H_lst
+
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 ########################################################################################
 ####################                                            ########################
@@ -331,6 +364,7 @@ t_num = len(t_max_lst)
 
 addr_data = "./store/data_"+args.name+".npy"
 # addr_ideal = "./store/ideal_"+args.name+".npy"
+create("./store/")
 
 ###############################  recording data & print info
 
@@ -362,11 +396,14 @@ if rand_amp == int(rand_amp):
 if C0_ratio == int(C0_ratio):
     C0_ratio = int(C0_ratio)
 
-prefix = '../prep/shadow_LVX/xdist'+str(x_dist)+'_rand'+str(rand_amp)+'_C'+str(C0_ratio)
-l_lst = np.load(prefix +'/l_l/n3.npy')
-V_lst = np.load(prefix + '/V_l/n3.npy')
-X_mat_lst = np.load(prefix + '/X_mat_l/n3.npy')
-X_inv_lst = np.load(prefix + '/X_inv_l/n3.npy')
+# prefix = '../prep/shadow_LVX/xdist'+str(x_dist)+'_rand'+str(rand_amp)+'_C'+str(C0_ratio)
+# l_lst = np.load(prefix +'/l_l/n3.npy')
+# V_lst = np.load(prefix + '/V_l/n3.npy')
+# X_mat_lst = np.load(prefix + '/X_mat_l/n3.npy')
+# X_inv_lst = np.load(prefix + '/X_inv_l/n3.npy')
+
+twirling_n = 3
+l_lst,V_lst,X_mat_lst,X_inv_lst,H_lst = Get_lvx(twirling_n, h_group_num, C0_ratio, x_dist, rand_amp)
 
 for n_idx in range(n_num):
     n = n_table[n_idx]

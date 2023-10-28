@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import random,time,argparse
 from tqdm import tqdm
@@ -11,6 +12,9 @@ def parse():
 
     return parser.parse_args()
 
+def create(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 args = parse()
 alpha_idx = args.aidx
@@ -94,6 +98,7 @@ for M_idx in range(M_num):
     print('Hamiltonian shadow: mean=',est_mean1, ', standard deviation=',est_dev1)
     print('')
 
+create("'./data/median/")
 np.save('./data/median/newdata_bias_H'+str(H_idx)+'_a'+str(alpha_idx)+'_obs'+str(obs_idx)+'.npy', data)
 
 
