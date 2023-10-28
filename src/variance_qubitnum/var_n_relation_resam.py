@@ -345,7 +345,8 @@ def Get_lvx(h_group_num, theta_table, n_table):
             X_mat_lst[n_idx].append([])
             X_inv_lst[n_idx].append([])
         
-            for theta in theta_table:
+            theta_tqdm = tqdm(theta_table,leave=False)
+            for theta in theta_tqdm:
                 V = expm(1j*theta*P)
                 X_mat, X_inv = Direct_calculate_X(V)
                 
@@ -357,6 +358,7 @@ def Get_lvx(h_group_num, theta_table, n_table):
         print('n=',n,': finished (runtime:',t1-t0,')')
     
     return l_lst,V_lst,X_mat_lst,X_inv_lst
+
 
 def Get_rho(n):
     # # 随机纯态

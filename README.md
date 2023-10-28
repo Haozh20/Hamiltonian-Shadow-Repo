@@ -1,15 +1,19 @@
-# Hamiltonian Shadow numerical simulations
+# Hamiltonian shadow numerical simulations
 
-We present the source code for nemerical simulations supporting `Fig.2`, `Fig.3`, `Fig.4` in main context, and `Fig.A1`, ..., in Appendix.
+We present the source codes for all nemerical simulations in our [paper](https://arxiv.org/). 
 
-## Experiment 1. Unbiasedness of Hamiltonian shadow
+## Unbiasedness of Hamiltonian shadow
 
-## Experiment 2. Variance analysis
+This experiment corresponds to `Fig2` in our main context.
 
-## Experiment 3. Rydberg atom system performance with limited time window
+## Variance analysis
+
+## Rydberg atom system performance with limited time window
 
 ## Supplementary experiments
 
 ### (1) Frame potential analysis
 
 ### (2) Single qubit analysis
+
+### (3) Hadamard version of Hamiltonian shadow
