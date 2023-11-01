@@ -9,7 +9,7 @@ from qiskit.quantum_info import Pauli
 from tqdm import tqdm
 
 # Parameters
-global tol,record,ideal
+global tol,record,data
 global ens_idx,n_idx,theta_idx,P_idx
 
 def parse():
@@ -20,30 +20,11 @@ def parse():
     parser.add_argument('-hnum', type=int, default = 10, help='number of Hamiltonians in the group')
     parser.add_argument('-tol', type=int, default = -20, help='tolerance for Monte Carlo sampling')
     
-    parser.add_argument('-theta',type = float, nargs='+',default=[0.1,0.2,0.3], help='list of all the theta')
+    parser.add_argument('-theta',type = float, nargs='+',default=[0.2,0.3], help='list of all the theta')
     parser.add_argument('-nlist',type = int, nargs='+',default=[2,3,4,5,6,7,8,9,10], help='list of all the n')
 
     parser.add_argument('-name', type=str, default='Var_n_Fidelity', help = 'name of the data recorded')
     return parser.parse_args()
-
-# 通过给定的H计算出相应N^{-1} channel的(X^D)^{-1}
-def VX_calculate(H):
-    D = len(H)
-    n = int(math.log(len(H), 2))
-
-    # diagonalize the Hamiltonian H
-    l, V = np.linalg.eig(H)
-    V_dag = V.conj().T
-
-    # X matrix is (2^n, 2^n) , shrinked version of the original matrix
-    # X_{j,i} = OriginalX_{ij,ij}
-    X_mat = np.zeros((D, D), dtype=complex)
-    for i in range(D):
-        for j in range(D):
-            for b in range(D):
-                X_mat[j, i] += V_dag[i, b]*V_dag[j, b]*V[b, i]*V[b, j]
-    X_inv = np.linalg.inv(X_mat)
-    return l, V, X_mat, X_inv
 
 def Direct_calculate_X(V):
     dim = len(V)
@@ -67,70 +48,6 @@ def digit_represent(num,k,n):
         res[n-1-i] = t
     return res
 
-def I_str(n):
-    res = I
-    for i in range(n-1):
-        res = res ^ I
-    return res
-
-def V_matrix(C, x_lst):
-    n = len(x_lst)
-    res = [[0 for i in range(n)] for i in range(n)]
-    for i in range(n):
-        for j in range(i+1, n):
-            res[i][j] = C/(x_lst[i]-x_lst[j])**6
-            res[j][i] = C/(x_lst[i]-x_lst[j])**6
-    return res
-
-def Rydberg_Hamiltonian(Omega_lst, phi_lst, Delta_lst, v_matrix):
-    V = v_matrix
-    n = len(Omega_lst)
-    # print('n=',n)
-    X_str_lst = [X ^ I_str(n-1)]
-    Y_str_lst = [Y ^ I_str(n-1)]
-    Z_str_lst = [Z ^ I_str(n-1)]
-    for i in range(n-2):
-        X_str_lst.append(I_str(i+1) ^ X ^ I_str(n-i-2))
-        Y_str_lst.append(I_str(i+1) ^ Y ^ I_str(n-i-2))
-        Z_str_lst.append(I_str(i+1) ^ Z ^ I_str(n-i-2))
-    X_str_lst.append(I_str(n-1) ^ X)
-    Y_str_lst.append(I_str(n-1) ^ Y)
-    Z_str_lst.append(I_str(n-1) ^ Z)
-
-    res = Omega_lst[0]/2*np.cos(phi_lst[0]) * X_str_lst[0] - Omega_lst[0]/2*np.sin(
-        phi_lst[0]) * Y_str_lst[0] - Delta_lst[0]/2 * Z_str_lst[0]
-    for i in range(n-1):
-        res = res + Omega_lst[i+1]/2*np.cos(phi_lst[i+1]) * X_str_lst[i+1] - Omega_lst[i+1]/2*np.sin(
-            phi_lst[i+1]) * Y_str_lst[i+1] - Delta_lst[i+1]/2 * Z_str_lst[i+1]
-
-    for i in range(n):
-        for j in range(i+1, n):
-            # print(i,j)
-            Vij = V[i][j]/4
-            if i == 0:
-                if j == (j == i+1) & (j != n-1):
-                    res = res + (Vij * (Z + I) ^ (Z + I) ^ I_str(n-2))
-                elif j == n-1:
-                    res = res + (Vij * (Z + I) ^ I_str(n-2) ^ (Z + I))
-                else:
-                    res = res + (Vij * (Z + I) ^ I_str(j-i-1)
-                                 ^ (Z + I) ^ I_str(n-j-1))
-            elif i == n-2:
-                res = res + (Vij * I_str(n-2) ^ (Z + I) ^ (Z + I))
-            else:
-                if j == i+1:
-                    #print((Vij* I_str(i) ^ (Z + I) ^ (Z + I) ^ I_str(n-j-1)))
-                    res = res + (Vij * I_str(i) ^ (Z + I)
-                                 ^ (Z + I) ^ I_str(n-j-1))
-                elif j == n-1:
-                    res = res + (Vij * I_str(i) ^ (Z + I)
-                                 ^ I_str(j-i-1) ^ (Z + I))
-                else:
-                    res = res + (Vij * I_str(i) ^ (Z + I) ^
-                                 I_str(j-i-1) ^ (Z + I) ^ I_str(n-j-1))
-
-    return res.to_matrix()
-
 def H_map(Post_state, V, X_mat, X_inv):
 
     D = len(Post_state)
@@ -146,60 +63,6 @@ def H_map(Post_state, V, X_mat, X_inv):
     rho_hat = np.dot(V, np.dot(rho_hat, V_dag))
     return rho_hat
 
-# Variance approximation
-def Var_approx(obs,V,X_mat,M):
-    dim = len(V)
-    n = int(math.log(dim,2))
-
-    V_dag = V.conj().T
-    obs_spin = np.dot(V_dag,np.dot(obs,V))
-
-    var = 0
-    for i in range(dim):
-        for j in range(dim):
-            var += ((obs_spin[i][j]*obs_spin[j][i])/(X_mat[i][j]))
-    var = var.real / dim
-    var = var / M
-    return var
-
-# Variance ideal calculation
-def Var_ideal(obs,rho,V,X_mat,X_inv,M):
-    dim = len(V)
-    n = int(math.log(dim,2))
-
-    V_dag = V.conj().T
-    obs_out = H_map(obs,V,X_mat,X_inv)
-    obs_post = np.dot(V_dag,np.dot(obs_out,V))
-    rho_post = np.dot(V_dag,np.dot(rho,V))
-
-    var = 0
-    # for i in range(dim):
-    for i in tqdm(range(dim),leave=False):
-        # for j in range(dim):
-        for j in tqdm(range(dim),leave=False):
-            for k in range(dim):
-                # 计算 Y(i,j,k)
-                y = 0
-                for b in range(dim):
-                    y += V[b][i]*V_dag[i][b] * V[b][j]*V_dag[j][b] * V[b][k]*V_dag[k][b]
-
-                # 根据 i,j,k 有几个重复index分类
-                if ((i==j) and (j==k)):
-                    var += y*( obs_post[i][i]*obs_post[i][i]*rho_post[i][i] )
-                elif i==j:
-                    var += y*( obs_post[i][i]*obs_post[i][i]*rho_post[k][k] + 2*obs_post[i][k]*obs_post[i][i]*rho_post[k][i])
-                elif j==k:
-                    var += y*( obs_post[i][i]*obs_post[j][j]*rho_post[j][j] + obs_post[i][j]*obs_post[j][i]*rho_post[j][j] + obs_post[i][j]*obs_post[j][j]*rho_post[j][i] )
-                elif k==i:
-                    var += y*( obs_post[i][i]*obs_post[j][j]*rho_post[i][i] + obs_post[i][j]*obs_post[j][i]*rho_post[i][i] + obs_post[i][i]*obs_post[j][i]*rho_post[i][j] )
-                else:
-                    var += y*( obs_post[i][i]*obs_post[j][j]*rho_post[k][k] + obs_post[i][i]*obs_post[j][k]*rho_post[k][j] + obs_post[i][j]*obs_post[j][i]*rho_post[k][k] + obs_post[i][j]*obs_post[j][k]*rho_post[k][i] + obs_post[i][k]*obs_post[j][i]*rho_post[k][j] + obs_post[i][k]*obs_post[j][j]*rho_post[k][i] )
-
-    var = var - (np.trace(np.dot(rho,obs)))**2
-
-    var = var.real
-    var = var / M
-    return var
 
 # Variance of global shadow
 def Var_global(obs,rho,M):
@@ -234,6 +97,8 @@ def Hamiltonian_Shadow(rho, V, X_mat, X_inv):
     # call the map of channel M^{-1}
     rho_hat = H_map(rho_hat, V, X_mat, X_inv)
     return rho_hat
+
+
 # ensemble 2: Local shadow
 def Local_Shadow(rho):
     dim = len(rho)
@@ -291,32 +156,78 @@ def Shadow_estimator(rho, obs, obs_type, DM, ensemble, V, X_mat, X_inv):
                 record[ens_idx][n_idx][theta_idx][P_idx][i] = term.real
     return
 
+# including taking median over all P matrices
+def resample(pool, M, times, median_num):
+    
+    # list that store each estimator, to numerically calculate variance
+    est_lst = np.zeros((median_num,times))
+    est_mean_lst = [0]*median_num
+    est_var_lst = [0]*median_num
+
+    # start running value of each Hamiltonians
+    for P_idx in tqdm(range(median_num),leave=False):
+
+        # Start sampling for <times> times
+        for times_idx in range(times):
+
+            subset = random.sample(pool[P_idx],M)
+            mean_term = np.mean(subset)
+
+            # get the median of all values
+            est_lst[P_idx][times_idx] = mean_term
+    
+        # get the variance of the pool
+        est_mean_lst[P_idx] = np.mean(est_lst[P_idx])
+        est_var_lst[P_idx] = np.var(est_lst[P_idx]) * (times / (times-1))
+
+    est_mean = np.median(est_mean_lst)
+    est_var = np.median(est_var_lst)
+
+    return est_mean, est_var
+
+
 def performance_var(rho, obs, obs_type, DM, M, times, ensemble, V, X_mat, X_inv):
     total_var = 0
 
+    # run all the experiments
     Shadow_estimator(rho, obs, obs_type, DM, ensemble, V, X_mat, X_inv)
-    pool = list(record[ens_idx][n_idx][theta_idx][P_idx])
 
-    t_sum = 0
-    sqr_sum = 0
-    times_tqdm = tqdm(range(times),leave=False)
-    # times_tqdm = range(times)
-    for times_idx in times_tqdm:
+    # define P_num
+    if ens_idx==2: # local
+        P_num = 1
+    elif ens_idx==0: # hamiltonian
+        P_num = 10
+    
+    pool = [0]*P_num
+    for P_idx in range(P_num):
+        pool[P_idx] = list(record[ens_idx][n_idx][theta_idx][P_idx])
 
-        # # DEBUG：相当于每次重新跑一遍
-        # Shadow_estimator(rho, obs, obs_type, DM, ensemble, V, X_mat, X_inv)
-        # pool = list(record[ens_idx][n_idx][theta_idx][P_idx])
+    # resample
+    est_mean, est_var = resample(pool, M, times, P_num)
+    real_value = 1
+    est_bias = est_mean - real_value
 
-        subset = random.sample(pool,M)
-        term = sum(subset) / M
-        # print(term)
-        
-        t_sum += term
-        sqr_sum += term**2
+    # record into data
+    data[ens_idx][theta_idx][n_idx] = est_var
 
-    total_var = (sqr_sum / (times - 1)) - (t_sum**2 / (times*(times - 1)))
 
-    return total_var
+    # pool = list(record[ens_idx][n_idx][theta_idx][P_idx])
+    # t_sum = 0
+    # sqr_sum = 0
+    # times_tqdm = tqdm(range(times),leave=False)
+    # # times_tqdm = range(times)
+    # for times_idx in times_tqdm:
+    #     # # DEBUG：相当于每次重新跑一遍
+    #     # Shadow_estimator(rho, obs, obs_type, DM, ensemble, V, X_mat, X_inv)
+    #     # pool = list(record[ens_idx][n_idx][theta_idx][P_idx])
+    #     subset = random.sample(pool,M)
+    #     term = sum(subset) / M
+    #     # print(term)
+    #     t_sum += term
+    #     sqr_sum += term**2
+    # total_var = (sqr_sum / (times - 1)) - (t_sum**2 / (times*(times - 1)))
+
+    return est_bias, est_var
 
 # CHANGE: ways to put in H
 def Get_lvx(h_group_num, theta_table, n_table):
@@ -417,7 +328,7 @@ obs_type = 0
 ens_table = ['Hamiltonian','Global','Local']
 ens_num = len(ens_table)
 # address for saved data
-addr = "./store/record_"+ name +".npy"
+addr_data = "./store/data_"+ name +".npy"
 create("./store/")
 
 ################################# Preparation #################################
@@ -430,9 +341,11 @@ print('n will take:',n_table)
 print('theta will take:',theta_table)
 
 
-# CHANGE: arrangement of record
 # record[ens_idx][n_idx][theta_idx][P_idx][DM_idx]
 record = np.zeros((ens_num,n_num,theta_num,h_group_num,DM))
+
+# data[ens_idx][theta_idx][n_idx], only store the variance
+data = np.zeros((ens_num, theta_num, n_num))
 
 # Get state rho
 # rho_lst[n_idx]
@@ -482,30 +395,46 @@ print('**** Fidelity test:')
 ens_idx = 2
 theta_idx = 0
 P_idx = 0
+P_num = 1
 print('')
-print('-------------- Simulated Local shadow --------------')
+print('-------------- Local shadow --------------')
 
 for n_idx in range(n_num):
     n = n_table[n_idx]
-    print('------')
-    print('** n=', n)
-    print('')
 
     t0 = time.time()
-    res = performance_var(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, M, times, ens_idx, V_lst[n_idx][P_idx][theta_idx], X_mat_lst[n_idx][P_idx][theta_idx], X_inv_lst[n_idx][P_idx][theta_idx])
+
+    # run all the experiments
+    Shadow_estimator(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, ens_idx, V_lst[n_idx][P_idx][theta_idx], X_mat_lst[n_idx][P_idx][theta_idx], X_inv_lst[n_idx][P_idx][theta_idx])
+    
+    pool = [0]*P_num
+    for P_idx in range(P_num):
+        pool[P_idx] = list(record[ens_idx][n_idx][theta_idx][P_idx])
+
+    # resample
+    est_mean, est_var = resample(pool, M, times, P_num)
+    real_value = 1
+    est_bias = est_mean - real_value
+
+    # record into data
+    data[ens_idx][theta_idx][n_idx] = est_var
+
+    # est_bias, est_var = performance_var(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, M, times, ens_idx, V_lst[n_idx][P_idx][theta_idx], X_mat_lst[n_idx][P_idx][theta_idx], X_inv_lst[n_idx][P_idx][theta_idx])
+    
     t1 = time.time()
 
-    print('* Simulated Local shadow: variance=', res, '(runtime:',t1-t0,')')
-    print('')
+    print('* (Local)  n=', n, ': bias=', est_bias,', variance=', est_var, '(runtime:',t1-t0,')')
 
-    np.save(addr, record)
+print('')
+np.save(addr_data, data)
 
 
 ################################# Simulated Hamiltonian shadow #################################
 
 ens_idx = 0
+P_num = h_group_num
 print('')
-print('-------------- Simulated Hamiltonian shadow --------------')
+print('-------------- Hamiltonian shadow --------------')
 
 for theta_idx in range(theta_num):
     theta = theta_table[theta_idx]
@@ -513,34 +442,41 @@ for theta_idx in range(theta_num):
     print('*** theta=', theta)
     print('')
 
-    # theta只取了一个的时候做一些调整
-    if theta_num==1:
-        th0_table = [0.002,0.01,0.05,0.1,0.2,0.3]
-        H_theta_idx = th0_table.index(theta_table[0])
-        # print('theta has an index in the table:',H_theta_idx)
-    else:
-        H_theta_idx = theta_idx
-
     for n_idx in range(n_num):
         n = n_table[n_idx]
-        print('------')
-        print('** n=', n)
-        print('')
 
-        res = 0
-        res_mean = 0
+        
 
         t0 = time.time()
-        h_tqdm = tqdm(range(h_group_num),leave=False)
-        # h_tqdm = range(h_group_num)
-        for P_idx in h_tqdm:
-            res = performance_var(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, M, times, ens_idx, V_lst[n_idx][P_idx][H_theta_idx], X_mat_lst[n_idx][P_idx][H_theta_idx], X_inv_lst[n_idx][P_idx][H_theta_idx])
-            res_mean += res
-        res_mean = res_mean / h_group_num
+
+        # run all the experiments
+        P_tqdm = tqdm(range(P_num),leave=False)
+        for P_idx in P_tqdm:
+            Shadow_estimator(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, ens_idx, V_lst[n_idx][P_idx][theta_idx], X_mat_lst[n_idx][P_idx][theta_idx], X_inv_lst[n_idx][P_idx][theta_idx])
+        
+        # creating pool
+        pool = [0]*P_num
+        for P_idx in range(P_num):
+            pool[P_idx] = list(record[ens_idx][n_idx][theta_idx][P_idx])
+
+        # resample
+        est_mean, est_var = resample(pool, M, times, P_num)
+        real_value = 1
+        est_bias = est_mean - real_value
+
+        # record into data
+        data[ens_idx][theta_idx][n_idx] = est_var
+
+        
+        # for P_idx in P_tqdm:
+        #     res = performance_var(rho_lst[n_idx], obs_lst[n_idx], obs_type, DM, M, times, ens_idx, V_lst[n_idx][P_idx][theta_idx], X_mat_lst[n_idx][P_idx][theta_idx], X_inv_lst[n_idx][P_idx][theta_idx])
+        #     res_mean += res
+        # res_mean = res_mean / h_group_num
+
         t1 = time.time()
-        print('* Simulated Hamiltonian shadow: variance=',res_mean, '(runtime:',t1-t0,')')
+        print('* (Hamiltonian)  n=', n, ': bias=', est_bias,', variance=', est_var, '(runtime:',t1-t0,')')
     
-    np.save(addr, record)
+np.save(addr_data, data)
 
 ################################# Ideal Global shadow #################################
 
@@ -553,15 +489,13 @@ print('-------------- Ideal Global shadow --------------')
 
 for n_idx in range(n_num):
     n = n_table[n_idx]
-    print('------')
-    print('** n=', n)
-    print('')
 
     t0 = time.time()
-    res = Var_global(obs_lst[n_idx],rho_lst[n_idx],M)
-    record[ens_idx][n_idx][theta_idx][P_idx][DM_idx] = res
+    est_var = Var_global(obs_lst[n_idx],rho_lst[n_idx],M)
+    record[ens_idx][n_idx][theta_idx][P_idx][DM_idx] = est_var
+    data[ens_idx][theta_idx][n_idx] = est_var
     t1 = time.time()
-    print('* Global shadow: variance=', res, '(runtime:',t1-t0,')')
+    print('* (Global shadow)  n=', n, ': variance=', est_var, '(runtime:',t1-t0,')')
     print('')
 
-    np.save(addr, record)
+np.save(addr_data, data)

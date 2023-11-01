@@ -1,4 +1,4 @@
-import time, math, cmath, os
+import time, math, cmath, os, random
 import numpy as np
 import scipy as sp
 from scipy.linalg import expm,sqrtm
@@ -10,21 +10,22 @@ from tqdm import tqdm
 import argparse
 
 # Parameters
-global tol,record,ideal
+global tol,record
 global ens_idx,obs_idx,n_idx,alpha_idx,H_idx
 
 def parse():
     parser = argparse.ArgumentParser(description='General framework of Hamiltonian shadow')
-    parser.add_argument('-M', type=int, default = 10000000, help='number of rounds for one estimator')
-    parser.add_argument('-times', type=int, default = 1, help='number of estimators')
+    parser.add_argument('-DM', type=int, default = 10000000, help='number of datapool of estimators')
+    parser.add_argument('-Mtable', type=int, nargs='+',default=[100,300,1000,3000,10000,30000,100000,300000,1000000], help = 'K list, number of experiments')
+    parser.add_argument('-times', type=int, default = 1000, help='number of estimators')
     parser.add_argument('-nmin', type=int, default = 4, help='qubit number lower bound')
     parser.add_argument('-nmax', type=int, default = 4, help='squbit number upper bound')
     parser.add_argument('-hnum', type=int, default = 10, help='number of Hamiltonians in the group')
     parser.add_argument('-tol', type=int, default = -20, help='tolerance for Monte Carlo sampling')
     parser.add_argument('-Cratio', type=float, default = 1, help='ratio of C to C0 in the Rydberg Hamiltonian')
 
-    parser.add_argument('-obs', type=int, nargs='+', default=[0,4], help = 'index of all the observables')
-    parser.add_argument('-alpha', type=int, nargs='+', default=[0,10,1,3], help='list of all the alpha to run')
+    parser.add_argument('-obs', type=int, nargs='+', default=[0], help = 'index of all the observables')
+    parser.add_argument('-alpha', type=int, nargs='+', default=[1], help='list of all the alpha to run')
     parser.add_argument('-name', type=str, default='bias_fidelity', help = 'name of the data recorded')
     return parser.parse_args()
 
@@ -202,88 +203,76 @@ def Original_Global_Shadow(rho):
     rho_hat = (dim+1)*rho_hat - np.identity(dim)
     return rho_hat
 
-# ensemble 3: correct local Pauli shadow protocol
-# TODO
-def Local_Shadow(rho):
-    return rho
 
-# ensemble 4: Hamiltonian without shadow, use precise inverse map
-# TODO
-def Hamiltonian_precise(rho, l, V, X_mat, X_inv, t_min, t_max):
-    return rho
-
-
-def Shadow_estimator(rho, obs, obs_type, M, ensemble, l, V, X_mat, X_inv, t_min, t_max):
-    res = 0
+def Shadow_estimator(rho, obs, obs_type, DM, ensemble, l, V, X_mat, X_inv, t_min, t_max):
     
-    # CHANGE: whether to show progress bar for M
-    M_tqdm = tqdm(range(M),leave=False)
-    # M_tqdm = range(M)
-    if (obs_type==0) or (obs_type==1) or (obs_type==4): # Fidelity / Pauli Operator / Entanglement Witness
+    # CHANGE: whether to show progress bar for DM
+    DM_tqdm = tqdm(range(DM),leave=False)
+    # M_tqdm = range(DM)        
+    if ensemble == 0:
+        for i in DM_tqdm:
+            rho_hat = Wrong_Global_Shadow(rho, l, V, t_min, t_max)
+            term = np.trace(np.dot(obs, rho_hat))
+            record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][i] = term.real
+    elif ensemble == 1:
+        for i in DM_tqdm:
+            rho_hat = Hamiltonian_Shadow(rho, l, V, X_mat, X_inv, t_min, t_max)
+            term = np.trace(np.dot(obs, rho_hat))
+            record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][i] = term.real
 
-        real_value = np.trace(np.dot(obs, rho))
-        ideal[ens_idx][obs_idx][n_idx][alpha_idx][H_idx] = real_value.real
-        
-        if ensemble == 0:
-            for i in M_tqdm:
-                rho_hat = Wrong_Global_Shadow(rho, l, V, t_min, t_max)
-                term = np.trace(np.dot(obs, rho_hat))
-                res += term/M
-                record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][i] = term.real
-        elif ensemble == 1:
-            for i in M_tqdm:
-                rho_hat = Hamiltonian_Shadow(rho, l, V, X_mat, X_inv, t_min, t_max)
-                term = np.trace(np.dot(obs, rho_hat))
-                res += term/M
-                record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][i] = term.real
-        elif ensemble == 2:
-            for i in M_tqdm:
-                rho_hat = Original_Global_Shadow(rho)
-                term = np.trace(np.dot(obs, rho_hat))
-                res += term/M
-                record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][i] = term.real
+    return
 
-    # # Trace distance
-    # elif obs_type==2:
-    #     if ensemble == 0:
-    #         for i in M_tqdm:
-    #             res += Wrong_Global_Shadow(rho, l, V, t_min, t_max)/M
-    #     elif ensemble == 1:
-    #         for i in M_tqdm:
-    #             res += Hamiltonian_Shadow(rho, l, V, X_mat, X_inv, t_min, t_max)/M
-    #     elif ensemble == 2:
-    #         for i in M_tqdm:
-    #             res += Original_Global_Shadow(rho)/M
-    return res
+def resample(pool, M, times):
+    pool = list(pool)
+    
+    # list that store each estimator, to numerically calculate variance
+    est_lst = np.zeros(times)
+    est_mean = 0
+    est_std = 0
+
+    # Start sampling for <times> times
+    for times_idx in range(times):
+
+        subset = random.sample(pool,M)
+        mean_term = np.mean(subset)
+
+        # get the median of all values
+        est_lst[times_idx] = mean_term
+
+    # get the variance of the pool
+    if times > 137:
+        rand_pos = 137
+    else:
+        rand_pos = times - 3
+
+    est_mean = est_lst[rand_pos]
+    est_std = np.std(est_lst) *np.sqrt(times / (times-1))
+
+    return est_mean, est_std
 
 # calculate average_bias and variance
 # return 2 variable, 1st: average bias; 2nd: log(variance)
 # Take average over ${times} estimators
-def performance(rho, obs, obs_type, M, times, ensemble, l, V, X_mat, X_inv, t_min, t_max):
-    var = 0
-    bias = 0
-    abs_bias = 0
+def performance(rho, obs, obs_type, DM, M, times, ensemble, l, V, X_mat, X_inv, t_min, t_max):
+    # M_num = len(M_table)
 
-    # times_tqdm = tqdm(range(times),leave=False)
-    # times_tqdm = range(times)
-    # for i in times_tqdm:
-    estimator = Shadow_estimator(rho, obs, obs_type, M, ensemble, l, V, X_mat, X_inv, t_min, t_max)
+    # run for DM-size datapool
+    # Shadow_estimator(rho, obs, obs_type, DM, ensemble, l, V, X_mat, X_inv, t_min, t_max)
     
-    if obs_type==0: # Fidelity
-        real_value = 1
-        term = (estimator - real_value).real
-    elif (obs_type==1) or (obs_type==4): # Pauli Operator / Entanglement Witness
-        real_value = np.trace(np.dot(obs, rho))
-        term = (estimator - real_value).real
-    
-    elif obs_type==2: # Trace distance
-        term = (0.5*np.trace(sqrtm(np.dot((rho-estimator).conj().T,rho-estimator)))).real
+    # start resampling for different M
 
-    var += (term**2)/times
-    bias += term/times
-    abs_bias += np.abs(term)/times
+    # for M_idx in range(M_num):
+    #     M = M_table[M_idx]
+        # for an M, resample for both Hamiltonian and Wrong shadow
+        # Wrong shadow, ens_idx = 0; Hamiltonian shadow, ens_idx = 1
+    est_mean, est_std = resample(record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx],M,times)
 
-    return bias, abs_bias, var
+    # record it into 'data'
+    # data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][mean / std]
+    data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][0] = est_mean
+    data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][1] = est_std
+
+    return
 
 # CHANGE: ways to put in H
 def Get_lvx(h_group_num, alpha_table, n):
@@ -369,7 +358,8 @@ def create(path):
 
 ### receiving args
 args = parse()
-M = args.M
+DM = args.DM
+M_table = args.Mtable
 times = args.times
 n_min = args.nmin
 n_max = args.nmax
@@ -379,7 +369,7 @@ tol = args.tol
 
 t_max = 10000
 t_min = 2
-M_table = [1000,5000,10000,50000,100000,500000,1000000,5000000]
+M_num = len(M_table)
 
 # 测的observable: obs0(Fidelity/Entanglement Witness)
 obs_table = args.obs
@@ -387,21 +377,22 @@ obs_num = len(obs_table)
 # adder list
 alpha_table = args.alpha
 alpha_num = len(alpha_table)
-# record[0]对应ens1(Hamiltonian), record[1]对应ens2(Original Global)
+
 ens_table = [0,1]
 ens_num = len(ens_table)
 # address for saved data
 addr_record = "./store/record_"+args.name+".npy"
 addr_ideal = "./store/ideal_"+args.name+".npy"
+addr_data = "./store/data_"+args.name+".npy"
 
 create("./store/")
 
 # CHANGE: arrangement of record
-# record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][M]
+# record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx][DM]
 # ens_table: [Wrong global, Hamiltonian]
 # obs_table: [Fidelity] or [Pauli]
-record = np.zeros((ens_num,obs_num,n_max-n_min+1,alpha_num,h_group_num,M))
-ideal = np.zeros((ens_num,obs_num,n_max-n_min+1,alpha_num,h_group_num))
+record = np.zeros((ens_num,obs_num,n_max-n_min+1,alpha_num,h_group_num,DM))
+data = np.zeros((alpha_num,obs_num,h_group_num,ens_num,M_num,2))
 
 for obs_idx in range(len(obs_table)):
     obs_type = obs_table[obs_idx]
@@ -409,7 +400,7 @@ for obs_idx in range(len(obs_table)):
     print('')
     print('H_group_num=',h_group_num)
     print('t in [', t_min, ', ', t_max, ']')
-    print('M=', M, ', the list of K: ', M_table)
+    print('DM=', DM, ', the list of K: ', M_table)
     print('The list of alpha: ', alpha_table)
     print('The list of observable: ', obs_table)
     print('The list of ensemble protocol ', ens_table)
@@ -460,25 +451,44 @@ for obs_idx in range(len(obs_table)):
             # h_tqdm = tqdm(range(h_group_num),leave=False)
             h_tqdm = range(h_group_num)
             for H_idx in h_tqdm:
+                print('--------- H(', H_idx,') ----------')
+                
+                # firstly run all DM experiments
                 for ens_idx in range(ens_num):
                     ens_type = ens_table[ens_idx]
+                    Shadow_estimator(rho, obs, obs_type, DM, ens_type, l_lst[H_idx][alpha_idx], V_lst[H_idx][alpha_idx], X_mat_lst[H_idx][alpha_idx], X_inv_lst[H_idx][alpha_idx], t_min, t_max)
 
-                    t0 = time.time()
-                    bias, abs_bias, var = performance(
-                        rho, obs, obs_type, M, times, ens_type, l_lst[H_idx][alpha_idx], V_lst[H_idx][alpha_idx], X_mat_lst[H_idx][alpha_idx], X_inv_lst[H_idx][alpha_idx], t_min, t_max)
-                    # CHANGE: choose one to show performance
-                    res = bias
-                    t1 = time.time()
+                # try different M, resampling
+                for M_idx in range(M_num):
+                    M = M_table[M_idx]
+                    print('**** M=',M, '  ( H_idx=', H_idx, ')')
 
-                    # CHANGE: messages to print
-                    if ens_type==0: # Wrong global shadow
-                        print('* Wrong Global shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
-                    elif ens_type==1: # Hamiltonian shadow
-                        print('* Hamiltonian shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
-                    elif ens_type==2: # Original Global shadow
-                        print('* Original Global shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
-              
-                print('')
+                    for ens_idx in range(ens_num):
+                        ens_type = ens_table[ens_idx]
+
+                        t0 = time.time()
+
+                        est_mean, est_std = resample(record[ens_idx][obs_idx][n_idx][alpha_idx][H_idx],M,times)
+                        # data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][mean / std]
+                        data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][0] = est_mean
+                        data[alpha_idx][obs_idx][H_idx][ens_idx][M_idx][1] = est_std
+                        real_value = np.trace(np.dot(obs, rho))
+                        bias = (est_mean - real_value).real
+
+                        # bias = performance(
+                        #     rho, obs, obs_type, DM, M_table, times, ens_type, l_lst[H_idx][alpha_idx], V_lst[H_idx][alpha_idx], X_mat_lst[H_idx][alpha_idx], X_inv_lst[H_idx][alpha_idx], t_min, t_max)
+                        
+                        res = bias
+                        t1 = time.time()
+
+                        if ens_type==0: # Wrong global shadow
+                            print('* Wrong Global shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
+                        elif ens_type==1: # Hamiltonian shadow
+                            print('* Hamiltonian shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
+                        elif ens_type==2: # Original Global shadow
+                            print('* Original Global shadow, H(', H_idx,'): total mean of average bias=', res, ' (runtime=', t1-t0, ')')
                 
-        np.save(addr_record, record)
-        np.save(addr_ideal, ideal)
+                    print('')
+                
+        # np.save(addr_record, record)
+        np.save(addr_data,data)
