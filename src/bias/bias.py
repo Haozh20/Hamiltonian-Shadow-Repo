@@ -26,7 +26,7 @@ def parse():
 
     parser.add_argument('-obs', type=int, nargs='+', default=[0], help = 'index of all the observables')
     parser.add_argument('-alpha', type=int, nargs='+', default=[1], help='list of all the alpha to run')
-    parser.add_argument('-name', type=str, default='bias_fidelity', help = 'name of the data recorded')
+    parser.add_argument('-name', type=str, default='bias_K_relation', help = 'name of the data recorded')
     return parser.parse_args()
 
 # 通过给定的H计算出相应N^{-1} channel的(X^D)^{-1}

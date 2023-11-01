@@ -22,14 +22,14 @@ def parse():
     parser.add_argument('-hnum', type=int, default = 10, help='number of Hamiltonians in the group')
     parser.add_argument('-tmin', type=int, default = 2)
     parser.add_argument('-tmax', type=int, nargs='+', default = [20,17,14,11,8,5])
-    parser.add_argument('-ntable', type=int, nargs='+', default= [3, 5], help = 'all the qubit number n' )
+    parser.add_argument('-ntable', type=int, nargs='+', default= [6], help = 'all the qubit number n' )
 
     parser.add_argument('-tol', type=int, default = -20, help='tolerance for Monte Carlo sampling')
     parser.add_argument('-Cratio', type=float, default = 1, help='ratio of C to C0 in the Rydberg Hamiltonian')
     parser.add_argument('-xdist', type=float, default=9, help='atom distance for twirling Hamiltonian')
     parser.add_argument('-randamp', type=float, default=1, help= 'random factor of atom distance')
 
-    parser.add_argument('-name', type=str, default='rydberg_fidelity', help = 'name of the data recorded')
+    parser.add_argument('-name', type=str, default='rydberg_ZXZ', help = 'name of the data recorded')
     parser.add_argument('-obs', type=int, default = 5 , help = 'type of observable tested')
     parser.add_argument('-ens', type = int, default = 1, help = 'type of protocol, 1 for Hamiltonian shadow')
 
@@ -272,11 +272,14 @@ def Get_rho(n):
     base_vec = V[:,b]
     rho = np.outer(base_vec,base_vec.conj())
 
-    trace_back_size = n - 3
+    trace_back_size = int((n-3) / 2)
+    trace_front_size = (n-3) - trace_back_size
     save_dim = 2** 3
     trace_back_dim = 2** trace_back_size
+    trace_front_dim = 2** trace_front_size
     if n > 3:
-        rho = np.trace(rho.reshape(save_dim, trace_back_dim, save_dim, trace_back_dim), axis1=1, axis2=3)
+        rho = np.trace(rho.reshape(save_dim*trace_front_dim, trace_back_dim, save_dim*trace_front_dim, trace_back_dim), axis1=1, axis2=3)
+        rho = np.trace(rho.reshape(trace_front_dim, save_dim, trace_front_dim, save_dim), axis1=0, axis2=2)
 
     return rho
 

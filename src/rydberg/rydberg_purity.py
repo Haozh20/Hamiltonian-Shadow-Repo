@@ -32,7 +32,7 @@ def parse():
     parser.add_argument('-xdist', type=float, default=9, help='atom distance for twirling Hamiltonian')
     parser.add_argument('-randamp', type=float, default=1, help='random factor in atom distance')
 
-    parser.add_argument('-name', type=str, default='rydberg_entropy', help = 'name of the data recorded')
+    parser.add_argument('-name', type=str, default='rydberg_purity', help = 'name of the data recorded')
 
     return parser.parse_args()
 

@@ -23,7 +23,7 @@ def parse():
     parser.add_argument('-theta',type = float, nargs='+',default=[0.2,0.3], help='list of all the theta')
     parser.add_argument('-nlist',type = int, nargs='+',default=[2,3,4,5,6,7,8,9,10], help='list of all the n')
 
-    parser.add_argument('-name', type=str, default='Var_n_Fidelity', help = 'name of the data recorded')
+    parser.add_argument('-name', type=str, default='var_qubitnum_relation_fidelity', help = 'name of the data recorded')
     return parser.parse_args()
 
 def Direct_calculate_X(V):

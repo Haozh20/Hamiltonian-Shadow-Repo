@@ -18,7 +18,7 @@ def parse():
     parser.add_argument('-DM', type=int, default= 20000, help = 'datapool size')
     parser.add_argument('-M', type=int, default = 10000, help='number of rounds for one estimator')
     parser.add_argument('-times', type=int, default = 1000, help='number of estimators')
-    parser.add_argument('-ntable', type=int, nargs='+', default = [3,4,5,6,7,8], help='qubit number table')
+    parser.add_argument('-ntable', type=int, nargs='+', default = [3,6,8], help='qubit number table')
 
     parser.add_argument('-hnum', type=int, default = 10, help='number of Hamiltonians in the group')
     parser.add_argument('-tmin', type=int, default = 2)
