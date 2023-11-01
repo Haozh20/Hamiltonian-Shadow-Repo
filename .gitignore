@@ -1,3 +1,4 @@
 */store/
 *.npy
-try/
+./try/
+*.gitignore
