@@ -4,9 +4,14 @@ import scipy as sp
 from scipy.linalg import expm,sqrtm
 import qiskit as qs
 from qiskit.quantum_info import random_unitary, random_clifford
-from qiskit.opflow import I, X, Y, Z
 from qiskit.quantum_info import Pauli
 from tqdm import tqdm
+
+import qiskit
+I = qiskit.quantum_info.Pauli('I')
+X = qiskit.quantum_info.Pauli('X')
+Y = qiskit.quantum_info.Pauli('Y')
+Z = qiskit.quantum_info.Pauli('Z')
 
 # Parameters
 global tol, x_dist
